@@ -1,92 +1,94 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Magic</title>
-<style>body{margin:0;background:#000;color:#fff;overflow:hidden;font-family:sans-serif}#lobby{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99}.card{width:90%;max-width:320px;text-align:center}input{width:100%;padding:14px;margin:8px 0;background:#111;border:1px solid #333;border-radius:10px;color:#fff;text-align:center}button{background:#fff;color:#000;border:none;padding:14px;border-radius:10px;font-weight:bold;width:100%;cursor:pointer;margin-top:10px}#main{display:flex;height:100vh}#left{flex:1;background:#000;position:relative;border-right:1px solid #111}#left video,#left canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}#right{flex:1.2;background:#000;position:relative}#right canvas{width:100%;height:100%;display:block}#status{position:absolute;bottom:10px;left:10px;font-size:11px;opacity:0.5;background:rgba(255,255,255,0.1);padding:6px 10px;border-radius:20px;z-index:5}</style>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"><title>Magic</title>
+<style>
+body{margin:0;background:#000;color:#fff;overflow:hidden;font-family:sans-serif}
+#lobby{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99}
+.card{width:90%;max-width:300px;text-align:center}input{width:100%;padding:14px;margin:8px 0;background:#111;border:1px solid #333;border-radius:10px;color:#fff;text-align:center}
+button{background:#fff;color:#000;border:none;padding:14px;border-radius:10px;font-weight:bold;width:100%;cursor:pointer;margin-top:10px}
+#main{display:flex;flex-direction:row;height:100vh;width:100vw}
+#left{width:50%;background:#222;position:relative;overflow:hidden}
+#left video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#right{width:50%;background:#000;position:relative}
+#right canvas{width:100%;height:100%;display:block}
+#overlay{position:absolute;inset:0;width:100%;height:100%}
+#status{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:10px;background:rgba(255,255,255,0.15);padding:5px 10px;border-radius:20px;white-space:nowrap}
+#btns{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:10}
+#btns button{width:auto;padding:6px 10px;font-size:10px;background:rgba(255,255,255,0.2);color:#fff;border:1px solid #555}
+</style>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head><body>
-<div id="lobby"><div class="card"><h2>MAGIC</h2><input id="t" placeholder="input kalimat contoh: I LOVE U"><input id="e" placeholder="input emoji contoh: ❤️"><button onclick="go()">START</button></div></div>
-<div id="main"><div id="left"><video id="v" autoplay playsinline muted></video><canvas id="overlay"></canvas><div id="status">IDLE: CUBE</div></div><div id="right"><canvas id="c"></canvas></div></div>
+<div id="lobby"><div class="card"><h3>MAGIC</h3><input id="t" placeholder="input kalimat"><input id="e" placeholder="input emoji"><button onclick="go()">START</button></div></div>
+<div id="main">
+<div id="left"><video id="v" autoplay playsinline muted></video><canvas id="overlay"></canvas><div id="status">IDLE CUBE</div></div>
+<div id="right"><div id="btns"><button onclick="setMode('CUBE')">CUBE</button><button onclick="setMode('LOVE')">✊</button><button onclick="setMode('TEXT')">✌️</button><button onclick="setMode('BLACKHOLE')">👌</button></div><canvas id="c"></canvas></div>
+</div>
 <script>
-let txt="",emo="",W,H,parts=[],mode='CUBE',lastHand=0,c,ctx,angle=0;
-function go(){txt=document.getElementById('t').value||"I LOVE U"; emo=document.getElementById('e').value||"❤️"; document.getElementById('lobby').style.display='none'; init();}
+let txt,emo,c,ctx,W,H,parts=[],mode='CUBE',lastHand=Date.now(),angle=0;
+function go(){txt=document.getElementById('t').value||"I LOVE U"; emo=document.getElementById('e').value||"❤️"; document.getElementById('lobby').style.display='none'; setTimeout(init,100);}
 function init(){
  c=document.getElementById('c'); ctx=c.getContext('2d');
- function rs(){W=c.width=c.clientWidth; H=c.height=c.clientHeight} rs(); window.onresize=rs;
- class P{constructor(x,y){this.x=x||Math.random()*W;this.y=y||Math.random()*H;this.tx=this.x;this.ty=this.y;this.col='#fff7a0'}update(){this.x+=(this.tx-this.x)*0.08; this.y+=(this.ty-this.y)*0.08}draw(){ctx.fillStyle=this.col; if(mode==='LOVE'){ctx.font='18px serif';ctx.fillText('❤',this.x,this.y)}else{ctx.beginPath();ctx.arc(this.x,this.y,mode==='TEXT'?2.2:2.5,0,7);ctx.fill()}}}
-
- // GENERATE CUBE 3D - kayak video lu
- function genCube(){
-   let pts=[],size=120,gap=12;
-   let verts=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
-   let edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
-   edges.forEach(([a,b])=>{let va=verts[a],vb=verts[b]; for(let t=0;t<=1;t+=gap/size){let x=va[0]*(1-t)+vb[0]*t, y=va[1]*(1-t)+vb[1]*t, z=va[2]*(1-t)+vb[2]*t; pts.push({x,y,z})}});
-   return pts;
- }
- let cube3D=genCube(); for(let i=0;i<1200;i++){let p=cube3D[i%cube3D.length]; parts.push(new P());}
-
+ function rs(){let r=c.getBoundingClientRect(); W=r.width; H=r.height; c.width=W; c.height=H;} rs();
+ let cubePts=[];
+ // bikin kubus 3D yang ada celah
+ for(let i=0;i<12;i++){cubePts.push({x:(Math.random()-0.5),y:(Math.random()-0.5),z:(Math.random()-0.5)})}
+ // edge points beneran
+ let verts=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+ let edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+ let edgePts=[];
+ edges.forEach(([a,b])=>{for(let t=0;t<=1;t+=0.12){let va=verts[a],vb=verts[b]; edgePts.push({x:va[0]*(1-t)+vb[0]*t, y:va[1]*(1-t)+vb[1]*t, z:va[2]*(1-t)+vb[2]*t})}});
+ for(let i=0;i<800;i++){let p=edgePts[i%edgePts.length]; parts.push({x:W/2,y:H/2,tx:W/2,ty:H/2,ox:p.x,oy:p.y,oz:p.z,col:'#fff7a0'})}
  function project(p3d){
-   // rotasi Y + X biar muter kayak di video
-   let ay=angle, ax=angle*0.6;
+   let ay=angle, ax=angle*0.7;
    let cosY=Math.cos(ay), sinY=Math.sin(ay), cosX=Math.cos(ax), sinX=Math.sin(ax);
-   let x=p3d.x*cosY - p3d.z*sinY;
-   let z=p3d.x*sinY + p3d.z*cosY;
-   let y=p3d.y*cosX - z*sinX;
-   let zz=p3d.y*sinX + z*cosX;
-   let scale=260/(260+zz*80);
-   return {x:W/2+x*scale*100, y:H/2+y*scale*100};
+   let x=p3d.x*cosY - p3d.z*sinY; let z=p3d.x*sinY + p3d.z*cosY;
+   let y=p3d.y*cosX - z*sinX; let zz=p3d.y*sinX + z*cosX;
+   let scale=200/(200+zz*80);
+   return {x:W/2+x*scale*50, y:H/2+y*scale*50};
  }
- function getTextPoints(s){let oc=document.createElement('canvas');oc.width=W;oc.height=H;let o=oc.getContext('2d');o.fillStyle='#fff';o.font='bold 52px Arial';o.textAlign='center';o.textBaseline='middle';o.fillText(s,W/2,H/2);let d=o.getImageData(0,0,W,H).data,pts=[];for(let y=0;y<H;y+=5)for(let x=0;x<W;x+=5)if(d[(y*W+x)*4+3]>10)pts.push({x,y});return pts;}
- function getHeartPoints(){let a=[],s=Math.min(W,H)*0.22,cx=W/2,cy=H/2;for(let t=0;t<6.28;t+=0.05){let x=16*Math.pow(Math.sin(t),3),y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));a.push({x:cx+x*s/16,y:cy+y*s/16})}return a;}
+ function getTextPoints(s){let oc=document.createElement('canvas');oc.width=W;oc.height=H;let o=oc.getContext('2d');o.fillStyle='#fff';o.font='bold 32px Arial';o.textAlign='center';o.textBaseline='middle';o.fillText(s,W/2,H/2);let d=o.getImageData(0,0,W,H).data,pts=[];for(let y=0;y<H;y+=6)for(let x=0;x<W;x+=6)if(d[(y*W+x)*4+3]>10)pts.push({x,y});return pts.length?pts:[{x:W/2,y:H/2}];}
+ function getHeartPoints(){let a=[],s=Math.min(W,H)*0.18,cx=W/2,cy=H/2;for(let t=0;t<6.28;t+=0.06){let x=16*Math.pow(Math.sin(t),3),y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));a.push({x:cx+x*s/16,y:cy+y*s/16})}return a;}
 
  window.setMode=(m)=>{
-   if(mode===m) return; mode=m;
-   document.getElementById('status').innerText = m==='CUBE'?'IDLE: CUBE (no hand)':m==='LOVE'?'✊ LOVE':m==='TEXT'?'✌️ TEXT':m==='BLACKHOLE'?'👌 BLACKHOLE':'';
+   mode=m; document.getElementById('status').innerText=m;
    let pts=[]; if(m==='LOVE') pts=getHeartPoints(); else if(m==='TEXT') pts=getTextPoints(txt);
-   if(m!=='CUBE' && m!=='BLACKHOLE'){ for(let i=0;i<parts.length;i++){let p=pts[i%pts.length]; if(p){parts[i].tx=p.x; parts[i].ty=p.y; parts[i].col=m==='LOVE'?'#ff8fab':m==='TEXT'?'#ffe066':'#fff7a0'}}}
+   if(m==='LOVE'||m==='TEXT'){for(let i=0;i<parts.length;i++){let p=pts[i%pts.length]; if(p){parts[i].tx=p.x; parts[i].ty=p.y; parts[i].col=m==='LOVE'?'#ff8fab':'#ffe066'}}}
  };
 
  function loop(){
-   ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,W,H);
-   angle+=0.015;
+   ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(0,0,W,H);
+   angle+=0.02;
    if(mode==='CUBE'){
-     cube3D.forEach((p3d,i)=>{let pr=project(p3d); let p=parts[i]; if(p){p.tx=pr.x; p.ty=pr.y; p.col='#fff7a0'}});
-     parts.forEach(p=>{p.update();p.draw()});
+     parts.forEach(p=>{let pr=project({x:p.ox,y:p.oy,z:p.oz}); p.tx=pr.x; p.ty=pr.y; p.col='#fff7a0'; p.x+=(p.tx-p.x)*0.1; p.y+=(p.ty-p.y)*0.1; ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,2,0,7); ctx.fill();});
    } else if(mode==='BLACKHOLE'){
-     let cx=W/2,cy=H/2;
-     ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(cx,cy,22,0,7); ctx.fill();
-     parts.forEach(p=>{
-       let dx=p.x-cx,dy=p.y-cy,r=Math.sqrt(dx*dx+dy*dy)+0.1,a=Math.atan2(dy,dx)+0.12+400/r*0.04;
-       p.tx=cx+Math.cos(a)*r; p.ty=cy+Math.sin(a)*r;
-       let colR=r%120; p.col=colR<40?'#ef4444':colR<80?'#3b82f6':'#f97316';
-       p.x+=(p.tx-p.x)*0.05; p.y+=(p.ty-p.y)*0.05; p.draw();
-     });
+     let cx=W/2,cy=H/2; ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(cx,cy,18,0,7); ctx.fill();
+     parts.forEach(p=>{let dx=p.x-cx,dy=p.y-cy,r=Math.sqrt(dx*dx+dy*dy)+0.1,a=Math.atan2(dy,dx)+0.12+300/r*0.03; p.tx=cx+Math.cos(a)*r; p.ty=cy+Math.sin(a)*r; let cR=r%90; p.col=cR<30?'#ef4444':cR<60?'#3b82f6':'#f97316'; p.x+=(p.tx-p.x)*0.06; p.y+=(p.ty-p.y)*0.06; ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,2.2,0,7); ctx.fill();});
    } else {
-     parts.forEach(p=>{p.update();p.draw()});
+     parts.forEach(p=>{p.x+=(p.tx-p.x)*0.1; p.y+=(p.ty-p.y)*0.1; ctx.fillStyle=p.col; if(mode==='LOVE'){ctx.font='16px serif';ctx.fillText('❤',p.x,p.y)}else{ctx.beginPath();ctx.arc(p.x,p.y,2,0,7);ctx.fill()}});
    }
-   if(Date.now()-lastHand>2500 && mode!=='CUBE'){setMode('CUBE')}
+   if(Date.now()-lastHand>3000 && mode!=='CUBE'){setMode('CUBE')}
    requestAnimationFrame(loop);
  }
  loop();
 
- // HAND + skeleton kayak video lu
  const video=document.getElementById('v'); const overlay=document.getElementById('overlay'); const octx=overlay.getContext('2d');
- function rsO(){overlay.width=overlay.clientWidth; overlay.height=overlay.clientHeight} rsO();
+ function rsO(){let r=overlay.getBoundingClientRect(); overlay.width=r.width; overlay.height=r.height;} rsO();
  const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}`});
- hands.setOptions({maxNumHands:1,minDetectionConfidence:0.7,minTrackingConfidence:0.7});
+ hands.setOptions({maxNumHands:1,minDetectionConfidence:0.6,minTrackingConfidence:0.6});
  hands.onResults(r=>{
    octx.clearRect(0,0,overlay.width,overlay.height);
    if(!r.multiHandLandmarks||!r.multiHandLandmarks.length) return;
    lastHand=Date.now();
    const lm=r.multiHandLandmarks[0];
-   drawConnectors(octx,lm,HAND_CONNECTIONS,{color:'#ffffff',lineWidth:2});
-   drawLandmarks(octx,lm,{color:'#ffffff',lineWidth:1,radius:3});
-   const isFist = lm[8].y>lm[6].y && lm[12].y>lm[10].y && lm[16].y>lm[14].y;
-   const isPeace = lm[8].y<lm[6].y && lm[12].y<lm[10].y && lm[16].y>lm[14].y && lm[20].y>lm[18].y;
+   drawConnectors(octx,lm,HAND_CONNECTIONS,{color:'#fff',lineWidth:2});
+   drawLandmarks(octx,lm,{color:'#fff',lineWidth:1,radius:2});
+   const isFist = lm[8].y>lm[6].y && lm[12].y>lm[10].y;
+   const isPeace = lm[8].y<lm[6].y && lm[12].y<lm[10].y;
    const isOk = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y) < 0.06;
    if(isOk) setMode('BLACKHOLE'); else if(isPeace) setMode('TEXT'); else if(isFist) setMode('LOVE');
  });
- new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:640,height:480}).start();
+ new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:480,height:640}).start();
 }
 </script>
 </body></html>
