@@ -1,45 +1,96 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Magic</title>
-<style>body{margin:0;background:#000;color:#fff;font-family:sans-serif;overflow:hidden}#lobby{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99}.card{width:90%;max-width:320px;text-align:center}input{width:100%;padding:14px;margin:8px 0;background:#111;border:1px solid #333;border-radius:10px;color:#fff;text-align:center;font-size:16px}button{background:#fff;color:#000;border:none;padding:14px 20px;border-radius:10px;font-weight:bold;width:100%;cursor:pointer;margin-top:10px}#main{display:flex;height:100vh}#left{flex:1;background:#000;position:relative}#left video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}#right{flex:1.2;background:#000;position:relative}canvas{width:100%;height:100%}#btns{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10}#btns button{width:auto;padding:8px 14px;font-size:12px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid #444;backdrop-filter:blur(5px)}</style>
+<style>body{margin:0;background:#000;color:#fff;font-family:sans-serif;overflow:hidden}#lobby{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99}.card{width:90%;max-width:320px;text-align:center}input{width:100%;padding:14px;margin:8px 0;background:#111;border:1px solid #333;border-radius:10px;color:#fff;text-align:center;font-size:16px}button{background:#fff;color:#000;border:none;padding:14px;border-radius:10px;font-weight:bold;width:100%;cursor:pointer;margin-top:10px}#main{display:flex;height:100vh}#left{flex:1;background:#000;position:relative;border-right:1px solid #111}#left video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}#right{flex:1.2;background:#000;position:relative}canvas{width:100%;height:100%}#status{position:absolute;bottom:12px;left:12px;font-size:11px;opacity:0.6;background:rgba(255,255,255,0.1);padding:6px 10px;border-radius:20px}</style>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 </head><body>
 <div id="lobby"><div class="card"><h2>MAGIC</h2><input id="t" placeholder="input kalimat"><input id="e" placeholder="input emoji"><button onclick="go()">START</button></div></div>
 <div id="main">
-<div id="left"><video id="v" autoplay playsinline muted></video></div>
-<div id="right"><div id="btns"><button onclick="setMode('LOVE')">LOVE</button><button onclick="setMode('TEXT')">TEXT</button><button onclick="setMode('BLACKHOLE')">HOLE</button></div><canvas id="c"></canvas></div>
+<div id="left"><video id="v" autoplay playsinline muted></video><div id="status">Menunggu tangan...</div></div>
+<div id="right"><canvas id="c"></canvas></div>
 </div>
 <script>
-let txt,emo,c,ctx,W,H,parts=[],mode='TEXT';
+let txt,emo,c,ctx,W,H,parts=[],mode='CUBE',lastHand=0;
 function go(){
- txt=document.getElementById('t').value; emo=document.getElementById('e').value;
- if(!txt||!emo){alert('isi dulu');return}
+ txt=document.getElementById('t').value.trim(); emo=document.getElementById('e').value.trim();
+ if(!txt||!emo){alert('isi kalimat & emoji');return}
  document.getElementById('lobby').style.display='none';
  init();
 }
 function init(){
  c=document.getElementById('c'); ctx=c.getContext('2d');
- function rs(){W=c.width=c.clientWidth; H=c.height=c.clientHeight} rs();
- class P{constructor(){this.x=Math.random()*W;this.y=Math.random()*H;this.tx=W/2;this.ty=H/2}update(){this.x+=(this.tx-this.x)*0.08;this.y+=(this.ty-this.y)*0.08}draw(){if(mode=='LOVE'){ctx.font='20px serif';ctx.fillText(emo,this.x,this.y)}else{ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(this.x,this.y,2,0,7);ctx.fill()}}}
- for(let i=0;i<1000;i++) parts.push(new P());
- function getPoints(str){
-  let oc=document.createElement('canvas'); oc.width=W; oc.height=H;
-  let o=oc.getContext('2d'); o.fillStyle='#fff'; o.font='bold 60px Arial'; o.textAlign='center'; o.textBaseline='middle'; o.fillText(str,W/2,H/2);
-  let d=o.getImageData(0,0,W,H).data, pts=[];
-  for(let y=0;y<H;y+=6) for(let x=0;x<W;x+=6) if(d[(y*W+x)*4+3]>10) pts.push({x,y});
-  return pts;
+ function rs(){W=c.width=c.clientWidth; H=c.height=c.clientHeight} rs(); window.onresize=rs;
+ class P{constructor(){this.x=Math.random()*W;this.y=Math.random()*H;this.tx=W/2;this.ty=H/2;this.col='#fff'}update(){this.x+=(this.tx-this.x)*0.07; this.y+=(this.ty-this.y)*0.07}draw(){
+   if(mode=='LOVE'){ctx.font='20px serif';ctx.fillText(emo,this.x,this.y)}
+   else if(mode=='BLACKHOLE'){ctx.fillStyle=this.col;ctx.beginPath();ctx.arc(this.x,this.y,2.5,0,7);ctx.fill()}
+   else{ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(this.x,this.y,1.8,0,7);ctx.fill()}
+ }}
+ for(let i=0;i<1300;i++) parts.push(new P());
+
+ function getTextPoints(s){let oc=document.createElement('canvas');oc.width=W;oc.height=H;let o=oc.getContext('2d');o.fillStyle='#fff';o.font='bold 54px Arial';o.textAlign='center';o.textBaseline='middle';o.fillText(s,W/2,H/2);let d=o.getImageData(0,0,W,H).data,pts=[];for(let y=0;y<H;y+=6)for(let x=0;x<W;x+=6)if(d[(y*W+x)*4+3]>10)pts.push({x,y});return pts.length?pts:[{x:W/2,y:H/2}]}
+ function getHeartPoints(){let a=[];let s=Math.min(W,H)*0.22,cx=W/2,cy=H/2;for(let t=0;t<6.28;t+=0.06){let x=16*Math.pow(Math.sin(t),3),y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));a.push({x:cx+x*s/16,y:cy+y*s/16})}return a}
+ function getCubePoints(){
+   let pts=[],size=Math.min(W,H)*0.5,cx=W/2,cy=H/2,gap=14;
+   // 12 edges kubus
+   for(let i=0;i<size;i+=gap){ // atas
+     pts.push({x:cx-size/2+i,y:cy-size/2}); pts.push({x:cx-size/2+i,y:cy+size/2});
+     pts.push({x:cx-size/2,y:cy-size/2+i}); pts.push({x:cx+size/2,y:cy-size/2+i});
+   }
+   // depan-belakang depth illusion
+   for(let d=0; d<4; d++){
+     let off=d*gap*2;
+     pts.push({x:cx-size/2+off,y:cy-size/2+off}); pts.push({x:cx+size/2-off,y:cy-size/2+off});
+   }
+   return pts;
  }
+
  window.setMode=(m)=>{
-  mode=m;
-  let pts=m=='LOVE'?(()=>{let a=[];for(let t=0;t<6.28;t+=0.07){let x=16*Math.pow(Math.sin(t),3),y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));a.push({x:W/2+x*8,y:H/2+y*8})}return a})():m=='BLACKHOLE'?[]:getPoints(txt);
-  if(m=='BLACKHOLE') return;
-  for(let i=0;i<parts.length;i++){let p=pts[i%pts.length]; if(p){parts[i].tx=p.x; parts[i].ty=p.y}}
+   if(mode===m) return; mode=m;
+   document.getElementById('status').innerText = m==='CUBE'?'IDLE: KUBUS':m==='LOVE'?'✊ LOVE':m==='TEXT'?'✌️ TEXT':m==='BLACKHOLE'?'👌 BLACKHOLE':'';
+   let pts=[];
+   if(m==='LOVE') pts=getHeartPoints();
+   else if(m==='TEXT') pts=getTextPoints(txt);
+   else if(m==='CUBE') pts=getCubePoints();
+   else if(m==='BLACKHOLE') return;
+   for(let i=0;i<parts.length;i++){let p=pts[i%pts.length]; if(p){parts[i].tx=p.x; parts[i].ty=p.y}}
  };
+
  function loop(){
-  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(0,0,W,H);
-  if(mode=='BLACKHOLE'){let cx=W/2,cy=H/2; parts.forEach(p=>{let dx=p.x-cx,dy=p.y-cy,r=Math.sqrt(dx*dx+dy*dy)+1,a=Math.atan2(dy,dx)+0.1; p.tx=cx+Math.cos(a)*r; p.ty=cy+Math.sin(a)*r; p.x+=(p.tx-p.x)*0.05; p.y+=(p.ty-p.y)*0.05; p.draw()})}else{parts.forEach(p=>{p.update();p.draw()})}
-  requestAnimationFrame(loop);
+   ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,0,W,H);
+   if(mode==='BLACKHOLE'){
+     let cx=W/2,cy=H/2;
+     parts.forEach(p=>{
+       let dx=p.x-cx,dy=p.y-cy,r=Math.sqrt(dx*dx+dy*dy)+0.1,a=Math.atan2(dy,dx)+0.08+300/r*0.02;
+       p.tx=cx+Math.cos(a)*r; p.ty=cy+Math.sin(a)*r;
+       // warna biru merah orange
+       let colPick = r%3; p.col = colPick<1?'#3b82f6':colPick<2?'#ef4444':'#f97316';
+       p.x+=(p.tx-p.x)*0.06; p.y+=(p.ty-p.y)*0.06; p.draw();
+     });
+   } else {
+     parts.forEach(p=>{p.update();p.draw()});
+   }
+   // auto balik ke kubus kalo 2 detik gak ada tangan
+   if(Date.now()-lastHand>2000 && mode!=='CUBE'){setMode('CUBE')}
+   requestAnimationFrame(loop);
  }
- loop(); setMode('TEXT');
- navigator.mediaDevices.getUserMedia({video:true}).then(s=>{document.getElementById('v').srcObject=s});
+ loop(); setMode('CUBE');
+
+ // HAND TRACKING
+ const video=document.getElementById('v');
+ const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}`});
+ hands.setOptions({maxNumHands:1,minDetectionConfidence:0.7,minTrackingConfidence:0.7});
+ hands.onResults(r=>{
+   if(!r.multiHandLandmarks || !r.multiHandLandmarks.length) return;
+   lastHand=Date.now();
+   const lm=r.multiHandLandmarks[0];
+   const isFist = lm[8].y>lm[6].y && lm[12].y>lm[10].y && lm[16].y>lm[14].y;
+   const isPeace = lm[8].y<lm[6].y && lm[12].y<lm[10].y && lm[16].y>lm[14].y && lm[20].y>lm[18].y;
+   const isOk = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y) < 0.06;
+   if(isOk) setMode('BLACKHOLE');
+   else if(isPeace) setMode('TEXT');
+   else if(isFist) setMode('LOVE');
+ });
+ new Camera(video,{onFrame:async()=>{await hands.send({image:video})},width:640,height:480}).start();
 }
 </script>
 </body></html>
